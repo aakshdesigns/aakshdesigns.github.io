@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import emailjs from '@emailjs/browser';
 import { ArrowUpRight, Check, Loader2, X } from 'lucide-react';
 import { useRevealContainer } from '@/useReveal';
+import { useMagnetic } from '@/useMagnetic';
 
 const EMAILJS_SERVICE_ID = 'service_kgecr9f';
 const EMAILJS_TEMPLATE_ID = 'template_lic5bc6';
@@ -81,7 +82,7 @@ export default function Contact() {
 
     const timer = setTimeout(() => {
       setNotice(null);
-    }, 5000);
+    }, 7000);
 
     return () => clearTimeout(timer);
   }, [notice]);
@@ -128,7 +129,7 @@ export default function Contact() {
         }
       );
 
-      console.log('EmailJS success:', response.status, response.text);
+      console.log('EmailJS SUCCESS:', response);
 
       setNotice({
         type: 'success',
@@ -143,34 +144,58 @@ export default function Contact() {
       });
 
       setCooldown(COOLDOWN_SECONDS);
-    } catch (error) {
-      console.error('EmailJS error:', error);
+    } catch (error: unknown) {
+      console.error('=================================');
+      console.error('EMAILJS SEND ERROR');
+      console.error(error);
+      console.error('=================================');
+
+      let errorMessage = 'Failed to send message. Please try again.';
+
+      if (typeof error === 'object' && error !== null) {
+        const emailError = error as {
+          text?: string;
+          message?: string;
+          status?: number;
+        };
+
+        if (emailError.text) {
+          errorMessage = emailError.text;
+        } else if (emailError.message) {
+          errorMessage = emailError.message;
+        }
+      }
 
       setNotice({
         type: 'error',
-        text: 'Failed to send message. Please try again.',
+        text: errorMessage,
       });
     } finally {
       setSending(false);
     }
   };
 
-  const updateField = (
-    key: keyof FormState,
-    value: string
-  ) => {
-    setForm((current) => ({
-      ...current,
-      [key]: value,
-    }));
+  const field = (key: keyof FormState) => ({
+    value: form[key],
 
-    if (errors[key]) {
-      setErrors((current) => ({
+    onChange: (
+      e: React.ChangeEvent<
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+      >
+    ) => {
+      setForm((current) => ({
         ...current,
-        [key]: undefined,
+        [key]: e.target.value,
       }));
-    }
-  };
+
+      if (errors[key]) {
+        setErrors((current) => ({
+          ...current,
+          [key]: undefined,
+        }));
+      }
+    },
+  });
 
   const inputCls = (error?: string) =>
     `w-full glass-input text-[#F5F5F5] placeholder-[#2d2d2d] px-4 py-3.5 text-sm rounded-sm ${
@@ -185,7 +210,7 @@ export default function Contact() {
     >
       <div className="mx-auto max-w-[1600px] px-6 sm:px-10 py-28 lg:py-36">
 
-        {/* Heading */}
+        {/* Header */}
         <div className="mb-20">
           <p
             className="reveal-item font-mono text-[#333] text-[0.6rem] tracking-[0.35em] uppercase mb-10"
@@ -225,14 +250,13 @@ export default function Contact() {
             style={{ transitionDelay: '160ms' }}
           >
             <p className="text-[#555] text-base leading-[1.8] max-w-md mb-10">
-              Whether it's a brand identity, advertising creative,
-              poster or social media campaign — reach out and let's
-              discuss your project.
+              Whether it's a brand identity, advertising creative, poster or
+              social media campaign — reach out and let's discuss your project.
             </p>
 
             <p className="text-[#333] text-sm leading-[1.8] max-w-sm">
-              Fill in the form and hit send — your message will be
-              delivered straight to my inbox.
+              Fill in the form and hit send — your message will be delivered
+              straight to my inbox.
             </p>
 
             <div className="mt-16">
@@ -253,7 +277,7 @@ export default function Contact() {
             </div>
           </div>
 
-          {/* Form */}
+          {/* Right side - Contact form */}
           <div
             className="reveal-item"
             style={{ transitionDelay: '220ms' }}
@@ -279,17 +303,20 @@ export default function Contact() {
                     id="name"
                     type="text"
                     autoComplete="name"
-                    value={form.name}
-                    onChange={(e) =>
-                      updateField('name', e.target.value)
-                    }
+                    {...field('name')}
                     aria-invalid={!!errors.name}
+                    aria-describedby={
+                      errors.name ? 'name-err' : undefined
+                    }
                     className={inputCls(errors.name)}
                     placeholder="Your name"
                   />
 
                   {errors.name && (
-                    <p className="mt-1.5 text-red-500/80 font-mono text-[0.56rem] tracking-wide">
+                    <p
+                      id="name-err"
+                      className="mt-1.5 text-red-500/80 font-mono text-[0.56rem] tracking-wide"
+                    >
                       {errors.name}
                     </p>
                   )}
@@ -307,25 +334,27 @@ export default function Contact() {
                     id="email"
                     type="email"
                     autoComplete="email"
-                    value={form.email}
-                    onChange={(e) =>
-                      updateField('email', e.target.value)
-                    }
+                    {...field('email')}
                     aria-invalid={!!errors.email}
+                    aria-describedby={
+                      errors.email ? 'email-err' : undefined
+                    }
                     className={inputCls(errors.email)}
                     placeholder="you@example.com"
                   />
 
                   {errors.email && (
-                    <p className="mt-1.5 text-red-500/80 font-mono text-[0.56rem] tracking-wide">
+                    <p
+                      id="email-err"
+                      className="mt-1.5 text-red-500/80 font-mono text-[0.56rem] tracking-wide"
+                    >
                       {errors.email}
                     </p>
                   )}
                 </div>
-
               </div>
 
-              {/* Project Type */}
+              {/* Project type */}
               <div>
                 <label
                   htmlFor="type"
@@ -336,10 +365,7 @@ export default function Contact() {
 
                 <select
                   id="type"
-                  value={form.type}
-                  onChange={(e) =>
-                    updateField('type', e.target.value)
-                  }
+                  {...field('type')}
                   className="w-full glass-input text-[#888] px-4 py-3.5 text-sm rounded-sm appearance-none"
                   style={{
                     background: 'rgba(255,255,255,0.03)',
@@ -376,17 +402,20 @@ export default function Contact() {
                 <textarea
                   id="message"
                   rows={5}
-                  value={form.message}
-                  onChange={(e) =>
-                    updateField('message', e.target.value)
-                  }
+                  {...field('message')}
                   aria-invalid={!!errors.message}
+                  aria-describedby={
+                    errors.message ? 'msg-err' : undefined
+                  }
                   className={`${inputCls(errors.message)} resize-none`}
                   placeholder="Tell me about your project..."
                 />
 
                 {errors.message && (
-                  <p className="mt-1.5 text-red-500/80 font-mono text-[0.56rem] tracking-wide">
+                  <p
+                    id="msg-err"
+                    className="mt-1.5 text-red-500/80 font-mono text-[0.56rem] tracking-wide"
+                  >
                     {errors.message}
                   </p>
                 )}
@@ -410,6 +439,7 @@ export default function Contact() {
                 ) : cooldown > 0 ? (
                   <>
                     Message Sent
+
                     <span className="font-mono tabular-nums">
                       {String(cooldown).padStart(2, '0')}s
                     </span>
@@ -417,6 +447,7 @@ export default function Contact() {
                 ) : (
                   <>
                     Send Message
+
                     <ArrowUpRight
                       size={13}
                       className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
@@ -424,7 +455,6 @@ export default function Contact() {
                   </>
                 )}
               </button>
-
             </form>
           </div>
         </div>
@@ -435,17 +465,20 @@ export default function Contact() {
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-50 flex items-start gap-3 glass-02 rounded-sm px-5 py-4 max-w-sm shadow-2xl"
+          className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-50 flex items-start gap-3 glass-02 rounded-sm px-5 py-4 max-w-sm shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300"
         >
           <span
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border ${
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border animate-in zoom-in-50 duration-500 ${
               notice.type === 'success'
                 ? 'border-white/10 text-[#F5F5F5] bg-[#F5F5F5]/[0.04]'
                 : 'border-red-800/40 text-red-500/90'
             }`}
           >
             {notice.type === 'success' ? (
-              <Check size={16} />
+              <Check
+                size={16}
+                className="animate-in zoom-in duration-300 delay-150"
+              />
             ) : (
               <X size={16} />
             )}
